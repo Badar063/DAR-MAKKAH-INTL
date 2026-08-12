@@ -1,23 +1,39 @@
+```python
 import os
 import re
 import sqlite3
+import html
 import unicodedata
 from pathlib import Path
 
 import streamlit as st
 from rapidfuzz import fuzz
 
+
 # ============================================================
-# CONFIGURATION & CONSTANTS
+# APPLICATION CONFIGURATION
 # ============================================================
 
 APP_TITLE = "Dar Makkah International"
 APP_SUBTITLE = "Library Catalog Search System"
+
 DATABASE_FILE = Path("library.db")
-LOGO_PATH = "a.jpg"  # Stored directly in root repository as requested
+LOGO_PATH = Path("a.jpg")
+
+# Search configuration
+MIN_RESULT_SCORE = 70.0
+MAX_RESULTS = 20
+
+# For very short searches such as "prayer", we want high precision.
+SHORT_QUERY_MIN_SCORE = 78.0
+
+# Fuzzy spelling tolerance.
+# This is deliberately conservative.
+FUZZY_WORD_THRESHOLD = 84.0
+
 
 # ============================================================
-# STREAMLIT PAGE CONFIG & CUSTOM DARK THEME STYLING
+# STREAMLIT PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -27,99 +43,255 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Custom Styling: Black Background, Orange Accents, Purple Headings, Clear White Text
+
+# ============================================================
+# PROFESSIONAL DARK THEME
+# ============================================================
+
 st.markdown(
     """
     <style>
-    /* Global Page Background & Fonts */
+
+    /* ========================================================
+       GLOBAL
+       ======================================================== */
+
     .stApp {
-        background-color: #0E0E10 !important;
-        color: #FFFFFF !important;
+        background:
+            radial-gradient(
+                circle at top center,
+                #17131f 0%,
+                #0e0e10 45%,
+                #09090b 100%
+            ) !important;
+
+        color: #ffffff !important;
     }
-    
-    /* Centered Header Section */
+
+    .block-container {
+        max-width: 1200px;
+        padding-top: 2rem;
+        padding-bottom: 4rem;
+    }
+
+
+    /* ========================================================
+       HEADER
+       ======================================================== */
+
     .header-container {
         text-align: center;
-        padding: 1rem 0 2rem 0;
+        padding: 1rem 0 1.8rem 0;
         margin-bottom: 2rem;
-        border-bottom: 2px solid #FF6600;
+
+        border-bottom:
+            1px solid rgba(255, 102, 0, 0.45);
+
+        background:
+            linear-gradient(
+                180deg,
+                rgba(168, 85, 247, 0.06),
+                transparent
+            );
     }
 
-    .logo-img {
-        max-height: 120px;
-        margin-bottom: 1rem;
-        border-radius: 8px;
-    }
-    
     .main-heading {
-        color: #A855F7 !important; /* Main Heading Purple */
-        font-size: 2.5rem !important;
+        color: #a855f7 !important;
+
+        font-size: 2.45rem !important;
         font-weight: 800 !important;
-        margin: 0.5rem 0 0.2rem 0 !important;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+
+        margin: 0.4rem 0 0.3rem 0 !important;
+
+        letter-spacing: 0.8px;
     }
-    
+
     .sub-heading {
-        color: #FF6600 !important; /* Secondary Subheading Orange */
-        font-size: 1.2rem !important;
+        color: #ff7a18 !important;
+
+        font-size: 1.05rem !important;
         font-weight: 500 !important;
-        margin: 0 !important;
+
+        letter-spacing: 0.5px;
     }
 
-    /* Cards & Container Styling */
-    .book-card {
-        background-color: #18181B;
-        border: 1px solid #3F3F46;
-        border-left: 5px solid #FF6600;
-        border-radius: 8px;
-        padding: 1.25rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    }
 
-    .book-title {
-        color: #A855F7 !important; /* Purple Book Title */
-        font-size: 1.4rem;
-        font-weight: 700;
+    /* ========================================================
+       SEARCH AREA
+       ======================================================== */
+
+    .search-description {
+        color: #a1a1aa !important;
+
+        font-size: 0.92rem;
+
         margin-bottom: 0.5rem;
     }
 
-    .book-badge {
-        background-color: #FF6600;
-        color: #FFFFFF !important;
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        display: inline-block;
-        margin-bottom: 0.5rem;
-        margin-right: 0.4rem;
-    }
-
-    /* Input Styling */
     .stTextInput > div > div > input {
-        background-color: #18181B !important;
-        color: #FFFFFF !important;
-        border: 2px solid #FF6600 !important;
-        border-radius: 8px !important;
-        padding: 12px !important;
+        background-color: #18181b !important;
+        color: #ffffff !important;
+
+        border:
+            1px solid #ff6600 !important;
+
+        border-radius: 10px !important;
+
+        padding: 13px 15px !important;
+
         font-size: 1rem !important;
     }
 
     .stTextInput > div > div > input:focus {
-        border-color: #A855F7 !important;
-        box-shadow: 0 0 8px rgba(168, 85, 247, 0.5) !important;
+        border-color: #a855f7 !important;
+
+        box-shadow:
+            0 0 0 1px #a855f7,
+            0 0 14px rgba(168, 85, 247, 0.25) !important;
     }
 
-    /* Labels & General Text Clear White */
-    label, p, span, div {
-        color: #FFFFFF !important;
+
+    /* ========================================================
+       BOOK CARD
+       ======================================================== */
+
+    .book-card {
+        background:
+            linear-gradient(
+                145deg,
+                #1b1b20,
+                #151519
+            );
+
+        border:
+            1px solid #303038;
+
+        border-left:
+            4px solid #ff6600;
+
+        border-radius:
+            12px;
+
+        padding:
+            1.25rem 1.35rem;
+
+        margin:
+            0.8rem 0 0.4rem 0;
+
+        box-shadow:
+            0 8px 24px rgba(0, 0, 0, 0.28);
     }
 
-    /* Hide Streamlit Boilerplate */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    .book-title {
+        color: #c084fc !important;
+
+        font-size: 1.35rem;
+
+        font-weight: 750;
+
+        line-height: 1.35;
+
+        margin-bottom: 0.75rem;
+    }
+
+    .book-badge {
+        display: inline-block;
+
+        background:
+            rgba(255, 102, 0, 0.13);
+
+        color: #ff9a55 !important;
+
+        border:
+            1px solid rgba(255, 102, 0, 0.28);
+
+        padding:
+            4px 9px;
+
+        margin:
+            2px 5px 2px 0;
+
+        border-radius:
+            6px;
+
+        font-size:
+            0.78rem;
+
+        font-weight:
+            600;
+    }
+
+
+    /* ========================================================
+       SCORE
+       ======================================================== */
+
+    .score-good {
+        color: #4ade80 !important;
+        font-weight: 700;
+    }
+
+    .score-medium {
+        color: #facc15 !important;
+        font-weight: 700;
+    }
+
+
+    /* ========================================================
+       DASHBOARD
+       ======================================================== */
+
+    .dashboard-card {
+        background:
+            #151519;
+
+        border:
+            1px solid #2f2f36;
+
+        border-radius:
+            10px;
+
+        padding:
+            1rem;
+
+        text-align:
+            center;
+    }
+
+
+    /* ========================================================
+       GENERAL TEXT
+       ======================================================== */
+
+    label {
+        color: #ffffff !important;
+    }
+
+    p {
+        color: #e4e4e7;
+    }
+
+    .muted {
+        color: #a1a1aa !important;
+    }
+
+
+    /* ========================================================
+       STREAMLIT CLEANUP
+       ======================================================== */
+
+    #MainMenu {
+        visibility: hidden;
+    }
+
+    footer {
+        visibility: hidden;
+    }
+
+    header {
+        background: transparent !important;
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -127,269 +299,970 @@ st.markdown(
 
 
 # ============================================================
-# DATABASE SETUP & CONNECTION
+# DATABASE
 # ============================================================
 
+@st.cache_resource
 def get_connection():
-    connection = sqlite3.connect(DATABASE_FILE, timeout=30)
+    """
+    Create one reusable SQLite connection.
+
+    check_same_thread=False is used because Streamlit can
+    execute application code in different execution contexts.
+    """
+    connection = sqlite3.connect(
+        DATABASE_FILE,
+        timeout=30,
+        check_same_thread=False,
+    )
+
     connection.row_factory = sqlite3.Row
+
     return connection
 
 
 def check_database():
-    """Verify library.db exists and contains the books table."""
+    """Verify that library.db and the books table exist."""
+
     if not DATABASE_FILE.exists():
-        st.error(f"Database file `{DATABASE_FILE}` was not found. Please ensure `library.db` is in the application directory.")
+        st.error(
+            f"Database file '{DATABASE_FILE}' was not found."
+        )
+        st.stop()
+
+    try:
+        connection = get_connection()
+
+        table = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+            AND name = 'books'
+            """
+        ).fetchone()
+
+        if table is None:
+            st.error(
+                "The database exists, but the 'books' table was not found."
+            )
+            st.stop()
+
+    except sqlite3.Error as error:
+        st.error(f"Database error: {error}")
         st.stop()
 
 
 check_database()
 
+
 # ============================================================
-# TEXT NORMALIZATION HELPERS
+# TEXT NORMALIZATION
 # ============================================================
 
-ARABIC_DIACRITICS = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]")
-ARABIC_TRANSLATION = str.maketrans({
-    "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا",
-    "ى": "ي", "ئ": "ي", "ؤ": "و", "ـ": "",
-    "ﻻ": "لا", "ﻷ": "لا", "ﻹ": "لا", "ﻵ": "لا",
-})
+ARABIC_DIACRITICS = re.compile(
+    r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]"
+)
+
+ARABIC_TRANSLATION = str.maketrans(
+    {
+        "أ": "ا",
+        "إ": "ا",
+        "آ": "ا",
+        "ٱ": "ا",
+        "ى": "ي",
+        "ئ": "ي",
+        "ؤ": "و",
+        "ـ": "",
+        "ﻻ": "لا",
+        "ﻷ": "لا",
+        "ﻹ": "لا",
+        "ﻵ": "لا",
+    }
+)
 
 
 def remove_latin_accents(text):
+    """Remove Latin accent marks while preserving Arabic."""
+
     normalized = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in normalized if not unicodedata.combining(c))
+
+    return "".join(
+        character
+        for character in normalized
+        if not unicodedata.combining(character)
+    )
 
 
 def normalize_text(text):
+    """
+    Normalize English and Arabic text.
+
+    Examples:
+
+        KHUSHŪ'
+        khushu
+
+    become comparable.
+
+        Imām
+        Imam
+
+    become comparable.
+    """
+
     if not text:
         return ""
+
     text = str(text).strip()
+
     text = remove_latin_accents(text)
+
     text = ARABIC_DIACRITICS.sub("", text)
+
     text = text.translate(ARABIC_TRANSLATION)
+
     text = text.lower()
-    text = text.replace("’", "'").replace("‘", "'").replace("–", "-").replace("—", "-")
-    text = re.sub(r"[^\w\u0600-\u06FF]+", " ", text, flags=re.UNICODE)
+
+    text = (
+        text
+        .replace("’", "'")
+        .replace("‘", "'")
+        .replace("–", "-")
+        .replace("—", "-")
+    )
+
+    # Keep letters/numbers/Arabic characters.
+    text = re.sub(
+        r"[^\w\u0600-\u06FF]+",
+        " ",
+        text,
+        flags=re.UNICODE,
+    )
+
     return " ".join(text.split()).strip()
-
-
-def compact_text(text):
-    normalized = normalize_text(text)
-    return re.sub(r"[\s_-]+", "", normalized)
 
 
 def tokenize(text):
     normalized = normalize_text(text)
+
     return normalized.split() if normalized else []
 
 
 # ============================================================
-# SEARCH & MATCHING ALGORITHMS
+# SEARCH HELPERS
 # ============================================================
 
-def fuzzy_field_score(query, field):
-    if not field:
-        return 0.0
+def exact_word_exists(word, field):
+    """
+    True only when the word actually exists as a complete token.
+
+    This is extremely important for short searches.
+
+    Searching "prayer" should not match an unrelated title merely
+    because some fuzzy algorithm thinks two strings look similar.
+    """
+
+    word = normalize_text(word)
+
+    if not word:
+        return False
+
+    field_tokens = tokenize(field)
+
+    return word in field_tokens
+
+
+def count_exact_query_words(query, field):
+    """Count how many query words occur exactly in a field."""
+
+    query_tokens = set(tokenize(query))
+    field_tokens = set(tokenize(field))
+
+    if not query_tokens:
+        return 0
+
+    return len(query_tokens.intersection(field_tokens))
+
+
+def all_query_words_exist(query, field):
+    """Check whether every query word exists in the field."""
+
+    query_tokens = set(tokenize(query))
+
+    if not query_tokens:
+        return False
+
+    field_tokens = set(tokenize(field))
+
+    return query_tokens.issubset(field_tokens)
+
+
+def phrase_exists(query, field):
+    """
+    Check whether the complete normalized query occurs
+    as a phrase in the field.
+    """
+
     q = normalize_text(query)
     f = normalize_text(field)
+
     if not q or not f:
+        return False
+
+    return q in f
+
+
+def best_fuzzy_word_score(query_word, field):
+    """
+    Conservative fuzzy matching.
+
+    This is used only to tolerate OCR/spelling mistakes.
+
+    Example:
+
+        prayer
+        praver
+
+    can still match.
+
+    But completely unrelated words are rejected.
+    """
+
+    field_tokens = tokenize(field)
+
+    if not field_tokens:
         return 0.0
-    if q == f:
-        return 100.0
-    if q in f:
-        return 98.0
 
-    qc, fc = compact_text(query), compact_text(field)
-    if qc and qc in fc:
-        return 97.0
+    best = 0.0
 
-    query_tokens, field_tokens = tokenize(query), tokenize(field)
-    best_word_score = 0.0
-    for qt in query_tokens:
-        for ft in field_tokens:
-            best_word_score = max(best_word_score, fuzz.ratio(qt, ft))
+    for field_word in field_tokens:
 
-    whole_scores = [
-        fuzz.ratio(q, f),
-        fuzz.partial_ratio(q, f),
-        fuzz.token_set_ratio(q, f),
-        fuzz.WRatio(q, f),
-    ]
-    return float(max([best_word_score] + whole_scores))
+        # Exact word already handled elsewhere.
+        if query_word == field_word:
+            return 100.0
 
-
-def multi_field_lexical_score(query, title, author, publisher):
-    query_tokens = tokenize(query)
-    if not query_tokens:
-        return 0.0
-    per_token = [
-        max(
-            fuzzy_field_score(t, title),
-            fuzzy_field_score(t, author) * 0.92,
-            fuzzy_field_score(t, publisher) * 0.90,
+        score = fuzz.ratio(
+            query_word,
+            field_word,
         )
-        for t in query_tokens
-    ]
-    return float(sum(per_token) / len(per_token)) if per_token else 0.0
+
+        if score > best:
+            best = score
+
+    return float(best)
+
+
+# ============================================================
+# PROFESSIONAL SEARCH SCORING
+# ============================================================
+
+def title_score(query, title):
+    """
+    Calculate a precision-first title score.
+
+    Title matches are much more important than author/publisher
+    matches.
+    """
+
+    q = normalize_text(query)
+    t = normalize_text(title)
+
+    if not q or not t:
+        return 0.0
+
+    # --------------------------------------------------------
+    # 1. Exact title
+    # --------------------------------------------------------
+
+    if q == t:
+        return 100.0
+
+    # --------------------------------------------------------
+    # 2. Complete query phrase inside title
+    # --------------------------------------------------------
+
+    if phrase_exists(q, t):
+        return 96.0
+
+    query_tokens = tokenize(q)
+    title_tokens = tokenize(t)
+
+    if not query_tokens or not title_tokens:
+        return 0.0
+
+    # --------------------------------------------------------
+    # 3. Exact token matching
+    # --------------------------------------------------------
+
+    exact_count = count_exact_query_words(q, t)
+
+    coverage = exact_count / len(set(query_tokens))
+
+    # Every query word exists in title.
+    if coverage == 1.0:
+
+        if len(query_tokens) == 1:
+            return 94.0
+
+        return 92.0 + min(
+            3.0,
+            len(query_tokens) * 0.5
+        )
+
+    # Partial exact token coverage.
+    if exact_count > 0:
+
+        base = 70.0 + (coverage * 18.0)
+
+        # Bonus when query starts the title.
+        if t.startswith(q):
+            base += 5.0
+
+        return min(base, 91.0)
+
+    # --------------------------------------------------------
+    # 4. Conservative fuzzy word matching
+    # --------------------------------------------------------
+
+    fuzzy_scores = []
+
+    for query_word in set(query_tokens):
+
+        score = best_fuzzy_word_score(
+            query_word,
+            t,
+        )
+
+        if score >= FUZZY_WORD_THRESHOLD:
+            fuzzy_scores.append(score)
+
+    if not fuzzy_scores:
+        return 0.0
+
+    fuzzy_coverage = len(fuzzy_scores) / len(set(query_tokens))
+
+    if fuzzy_coverage == 1.0:
+        return min(
+            88.0,
+            sum(fuzzy_scores) / len(fuzzy_scores)
+        )
+
+    # A single fuzzy word should not make an unrelated title
+    # appear as a strong result.
+    if len(query_tokens) == 1:
+        return 82.0 if fuzzy_scores[0] >= 90 else 0.0
+
+    return 0.0
+
+
+def author_score(query, author):
+    """
+    Author matching is intentionally weaker than title matching.
+    """
+
+    q = normalize_text(query)
+    a = normalize_text(author)
+
+    if not q or not a:
+        return 0.0
+
+    if q == a:
+        return 90.0
+
+    if phrase_exists(q, a):
+        return 86.0
+
+    exact_count = count_exact_query_words(q, a)
+    query_count = len(set(tokenize(q)))
+
+    if query_count == 0:
+        return 0.0
+
+    coverage = exact_count / query_count
+
+    if coverage == 1.0:
+        return 82.0
+
+    if exact_count > 0:
+        return 65.0 + coverage * 15.0
+
+    return 0.0
+
+
+def publisher_score(query, publisher):
+    """
+    Publisher matching is useful, but should never dominate
+    a title match.
+    """
+
+    q = normalize_text(query)
+    p = normalize_text(publisher)
+
+    if not q or not p:
+        return 0.0
+
+    if q == p:
+        return 85.0
+
+    if phrase_exists(q, p):
+        return 80.0
+
+    exact_count = count_exact_query_words(q, p)
+
+    if exact_count > 0:
+        return 60.0
+
+    return 0.0
+
+
+def calculate_book_score(query, row):
+    """
+    Final relevance score.
+
+    Priority:
+
+        TITLE
+        ↓
+        AUTHOR
+        ↓
+        PUBLISHER
+
+    This prevents common author/publisher words from polluting
+    title searches.
+    """
+
+    title = row["title"] or ""
+    author = row["author"] or ""
+    publisher = row["publisher"] or ""
+
+    t_score = title_score(query, title)
+    a_score = author_score(query, author)
+    p_score = publisher_score(query, publisher)
+
+    # --------------------------------------------------------
+    # TITLE HAS STRONG PRIORITY
+    # --------------------------------------------------------
+
+    if t_score >= 90:
+        final_score = t_score
+
+    elif t_score >= 70:
+        final_score = t_score
+
+        # Small author bonus only.
+        if a_score >= 80:
+            final_score += 2.0
+
+    elif a_score >= 80:
+        final_score = a_score * 0.92
+
+    elif p_score >= 80:
+        final_score = p_score * 0.88
+
+    else:
+        final_score = max(
+            t_score,
+            a_score * 0.88,
+            p_score * 0.82,
+        )
+
+    return round(
+        min(final_score, 100.0),
+        1,
+    )
+
+
+# ============================================================
+# SEARCH DATABASE
+# ============================================================
+
+@st.cache_data(ttl=300)
+def load_books():
+    """Load all books once and cache them."""
+
+    connection = get_connection()
+
+    rows = connection.execute(
+        """
+        SELECT
+            id,
+            shelf,
+            title,
+            author,
+            publisher,
+            language,
+            position,
+            image
+        FROM books
+        """
+    ).fetchall()
+
+    return rows
 
 
 def search_books(query):
+    """
+    High precision catalog search.
+
+    Important:
+    We do NOT return every fuzzy match.
+
+    A book must have a meaningful relationship to the query.
+    """
+
     query = query.strip()
+
     if not query:
-        return []
-
-    connection = get_connection()
-    rows = connection.execute("SELECT * FROM books").fetchall()
-    connection.close()
-
-    if not rows:
         return []
 
     normalized_query = normalize_text(query)
 
-    # Priority 1: Exact Match Evaluation
-    exact_title_rows = [
-        row for row in rows if normalize_text(row["title"] or "") == normalized_query
-    ]
+    if not normalized_query:
+        return []
 
-    if exact_title_rows:
-        exact_results = []
-        for row in exact_title_rows:
-            exact_results.append({
-                "id": row["id"],
-                "shelf": row["shelf"],
-                "title": row["title"] or "",
-                "author": row["author"] or "",
-                "publisher": row["publisher"] or "",
-                "language": row["language"] or "",
-                "position": row["position"],
-                "image": row["image"],
-                "score": 100.0,
-                "reason": "Exact Title Match",
-            })
-        exact_results.sort(key=lambda x: (x["shelf"], x["position"] if x["position"] is not None else 999999))
-        return exact_results
+    query_tokens = tokenize(normalized_query)
 
-    # Priority 2: Multi-field Fuzzy Search
+    rows = load_books()
+
+    if not rows:
+        return []
+
     results = []
+
     for row in rows:
-        t, a, p = row["title"] or "", row["author"] or "", row["publisher"] or ""
-        
-        t_score = fuzzy_field_score(query, t)
-        a_score = fuzzy_field_score(query, a)
-        p_score = fuzzy_field_score(query, p)
-        m_score = multi_field_lexical_score(query, t, a, p)
 
-        lexical_score = max(t_score, a_score * 0.94, p_score * 0.92, m_score)
+        title = row["title"] or ""
+        author = row["author"] or ""
+        publisher = row["publisher"] or ""
 
-        if lexical_score >= 60.0:  # Match Threshold
-            results.append({
+        t_normalized = normalize_text(title)
+        a_normalized = normalize_text(author)
+        p_normalized = normalize_text(publisher)
+
+        # ====================================================
+        # STRICT RELEVANCE FILTER
+        # ====================================================
+
+        title_exact = (
+            normalized_query == t_normalized
+        )
+
+        title_phrase = (
+            normalized_query in t_normalized
+        )
+
+        title_exact_words = count_exact_query_words(
+            normalized_query,
+            title,
+        )
+
+        author_exact_words = count_exact_query_words(
+            normalized_query,
+            author,
+        )
+
+        publisher_exact_words = count_exact_query_words(
+            normalized_query,
+            publisher,
+        )
+
+        # ----------------------------------------------------
+        # Calculate score
+        # ----------------------------------------------------
+
+        score = calculate_book_score(
+            normalized_query,
+            row,
+        )
+
+        # ----------------------------------------------------
+        # Determine whether this book is genuinely relevant
+        # ----------------------------------------------------
+
+        relevant = False
+
+        # Exact title.
+        if title_exact:
+            relevant = True
+
+        # Query phrase occurs in title.
+        elif title_phrase:
+            relevant = True
+
+        # Exact query word exists in title.
+        elif title_exact_words > 0:
+            relevant = True
+
+        # Exact query word exists in author.
+        elif author_exact_words > 0:
+            relevant = True
+
+        # Exact query word exists in publisher.
+        elif publisher_exact_words > 0:
+            relevant = True
+
+        # Conservative fuzzy spelling correction.
+        elif score >= MIN_RESULT_SCORE:
+            relevant = True
+
+        if not relevant:
+            continue
+
+        # ----------------------------------------------------
+        # Extra protection for one-word searches.
+        # ----------------------------------------------------
+
+        if len(query_tokens) == 1:
+
+            q_word = query_tokens[0]
+
+            actual_word_match = (
+                exact_word_exists(q_word, title)
+                or exact_word_exists(q_word, author)
+                or exact_word_exists(q_word, publisher)
+            )
+
+            # If there is no actual word match, require a
+            # genuinely strong fuzzy match.
+            if not actual_word_match and score < SHORT_QUERY_MIN_SCORE:
+                continue
+
+        results.append(
+            {
                 "id": row["id"],
-                "shelf": row["shelf"],
-                "title": t,
-                "author": a,
-                "publisher": p,
+                "shelf": row["shelf"] or "",
+                "title": title,
+                "author": author,
+                "publisher": publisher,
                 "language": row["language"] or "",
                 "position": row["position"],
-                "image": row["image"],
-                "score": round(lexical_score, 1),
-                "reason": "Relevance Match",
-            })
+                "image": row["image"] or "",
+                "score": score,
+            }
+        )
 
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return results
+    # ========================================================
+    # SORTING
+    # ========================================================
+
+    results.sort(
+        key=lambda book: (
+            -book["score"],
+            book["title"].lower(),
+        )
+    )
+
+    return results[:MAX_RESULTS]
 
 
 # ============================================================
-# USER INTERFACE LAYOUT
+# SAFE HTML
 # ============================================================
 
-# Top Center Logo & Title Banner
-logo_html = ""
-if os.path.exists(LOGO_PATH):
-    logo_html = f'<img src="data:image/jpeg;base64,{st.image(LOGO_PATH, width=150)}"/>'
+def safe(value):
+    """Escape text before placing it inside HTML."""
 
-# Render Top Centered Header
-col_left, col_center, col_right = st.columns([1, 2, 1])
+    return html.escape(
+        str(value or "")
+    )
+
+
+# ============================================================
+# HEADER
+# ============================================================
+
+col_left, col_center, col_right = st.columns(
+    [1, 2, 1]
+)
 
 with col_center:
-    if os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, width=220)
+
+    if LOGO_PATH.exists():
+
+        st.image(
+            str(LOGO_PATH),
+            width=190,
+        )
+
     st.markdown(
         f"""
         <div class="header-container">
-            <div class="main-heading">{APP_TITLE}</div>
-            <div class="sub-heading">{APP_SUBTITLE}</div>
+
+            <div class="main-heading">
+                {safe(APP_TITLE)}
+            </div>
+
+            <div class="sub-heading">
+                {safe(APP_SUBTITLE)}
+            </div>
+
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-# Search Controls
-search_query = st.text_input(
-    "🔎 Search Catalog",
-    placeholder="Type title, author, or publisher name...",
+
+# ============================================================
+# SEARCH
+# ============================================================
+
+st.markdown(
+    '<div class="search-description">'
+    'Search by book title, author, publisher, or keyword.'
+    '</div>',
+    unsafe_allow_html=True,
 )
 
+search_query = st.text_input(
+    "🔎 Search Catalog",
+    placeholder="Example: Prayer, Ibn Qayyim, Dar as-Sunnah...",
+    label_visibility="visible",
+)
+
+
+# ============================================================
+# SEARCH RESULTS
+# ============================================================
+
 if search_query:
+
     results = search_books(search_query)
 
     if results:
-        st.markdown(f"<h3 style='color: #A855F7;'>Found {len(results)} Matching Record(s)</h3>", unsafe_allow_html=True)
+
+        st.markdown(
+            f"""
+            <h3 style="
+                color:#a855f7;
+                margin-top:1.5rem;
+                margin-bottom:1rem;
+            ">
+                {len(results)} Matching Book(s)
+            </h3>
+            """,
+            unsafe_allow_html=True,
+        )
 
         for book in results:
-            # Main card layout
+
+            title = safe(book["title"])
+            shelf = safe(book["shelf"])
+            author = safe(book["author"])
+            publisher = safe(book["publisher"])
+            language = safe(book["language"])
+
+            position = (
+                safe(book["position"])
+                if book["position"] is not None
+                else ""
+            )
+
+            score = book["score"]
+
+            if score >= 90:
+                score_class = "score-good"
+            else:
+                score_class = "score-medium"
+
+            # ------------------------------------------------
+            # BOOK CARD
+            # ------------------------------------------------
+
             st.markdown(
                 f"""
                 <div class="book-card">
-                    <div class="book-title">{book['title']}</div>
-                    <div>
-                        <span class="book-badge">📍 Shelf: {book['shelf']}</span>
-                        {'<span class="book-badge">Position: ' + str(book['position']) + '</span>' if book['position'] else ''}
-                        {'<span class="book-badge">Lang: ' + book['language'] + '</span>' if book['language'] else ''}
+
+                    <div class="book-title">
+                        📖 {title}
                     </div>
+
+                    <div>
+
+                        <span class="book-badge">
+                            📍 Shelf: {shelf}
+                        </span>
+
+                        {
+                            f'''
+                            <span class="book-badge">
+                                Position: {position}
+                            </span>
+                            '''
+                            if position
+                            else ""
+                        }
+
+                        {
+                            f'''
+                            <span class="book-badge">
+                                Language: {language}
+                            </span>
+                            '''
+                            if language
+                            else ""
+                        }
+
+                    </div>
+
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-            # Metadata details grid
-            meta_col1, meta_col2, meta_col3 = st.columns([1, 1, 1])
+            # ------------------------------------------------
+            # METADATA
+            # ------------------------------------------------
+
+            meta_col1, meta_col2, meta_col3 = st.columns(
+                [1.2, 1.2, 0.7]
+            )
 
             with meta_col1:
-                if book["author"]:
-                    st.markdown(f"**Author:** {book['author']}")
+
+                if author:
+
+                    st.markdown(
+                        f"""
+                        **Author:** {author}
+                        """
+                    )
 
             with meta_col2:
-                if book["publisher"]:
-                    st.markdown(f"**Publisher:** {book['publisher']}")
+
+                if publisher:
+
+                    st.markdown(
+                        f"""
+                        **Publisher:** {publisher}
+                        """
+                    )
 
             with meta_col3:
-                st.markdown(f"**Match Relevance:** {book['score']}%")
 
-            # Image display only if the file exists and is valid
+                st.markdown(
+                    f"""
+                    **Match:**
+                    <span class="{score_class}">
+                    {score}%
+                    </span>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            # ------------------------------------------------
+            # SHELF IMAGE
+            # ------------------------------------------------
+
             if book["image"]:
-                img_path = Path("shelves") / book["image"] if not Path(book["image"]).exists() else Path(book["image"])
-                if img_path.exists():
-                    with st.expander("📷 View Shelf Location Image"):
-                        st.image(str(img_path), use_container_width=True)
+
+                image_name = Path(
+                    str(book["image"])
+                ).name
+
+                possible_paths = [
+                    Path(image_name),
+                    Path("shelves") / image_name,
+                ]
+
+                image_path = None
+
+                for candidate in possible_paths:
+
+                    if candidate.exists():
+
+                        image_path = candidate
+
+                        break
+
+                if image_path:
+
+                    with st.expander(
+                        "📷 View Shelf Location"
+                    ):
+
+                        st.image(
+                            str(image_path),
+                            use_container_width=True,
+                        )
 
             st.divider()
 
     else:
-        st.warning("No matching books found in the library database. Try refining your search terms.")
+
+        st.warning(
+            f"No relevant books found for "
+            f"'{search_query}'. "
+            "Try another title, author, or keyword."
+        )
+
+
+# ============================================================
+# DEFAULT DASHBOARD
+# ============================================================
 
 else:
-    # Default Dashboard View
-    st.info("💡 Start typing in the search bar above to query books directly from the database.")
-    
-    conn = get_connection()
-    total_books = conn.execute("SELECT COUNT(*) FROM books").fetchone()[0]
-    total_shelves = conn.execute("SELECT COUNT(DISTINCT shelf) FROM books").fetchone()[0]
-    conn.close()
 
-    m1, m2 = st.columns(2)
-    m1.metric("Total Books in Database", total_books)
-    m2.metric("Total Shelves Indexed", total_shelves)
+    st.info(
+        "💡 Start typing in the search box to search the library catalog."
+    )
+
+    rows = load_books()
+
+    total_books = len(rows)
+
+    total_shelves = len(
+        {
+            row["shelf"]
+            for row in rows
+            if row["shelf"]
+        }
+    )
+
+    # --------------------------------------------------------
+    # DASHBOARD METRICS
+    # --------------------------------------------------------
+
+    metric1, metric2 = st.columns(2)
+
+    with metric1:
+
+        st.metric(
+            "📚 Total Books",
+            total_books,
+        )
+
+    with metric2:
+
+        st.metric(
+            "🗄️ Indexed Shelves",
+            total_shelves,
+        )
+
+    # --------------------------------------------------------
+    # SYSTEM INFORMATION
+    # --------------------------------------------------------
+
+    st.markdown(
+        """
+        <div class="dashboard-card" style="margin-top:1.5rem;">
+
+            <div style="
+                color:#a855f7;
+                font-size:1.1rem;
+                font-weight:700;
+            ">
+                Library Search System
+            </div>
+
+            <div class="muted" style="margin-top:0.4rem;">
+                Precision-first catalog search with
+                Arabic/English text normalization and
+                conservative fuzzy matching.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+```
