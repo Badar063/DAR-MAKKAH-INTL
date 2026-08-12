@@ -1,4 +1,4 @@
-```python
+
 import os
 import re
 import sqlite3
@@ -1265,4 +1265,4 @@ else:
         """,
         unsafe_allow_html=True,
     )
-```
+
