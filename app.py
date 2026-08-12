@@ -17,7 +17,7 @@ DATABASE_FILE = Path("library.db")
 LOGO_PATH = "a.jpg"  # Stored directly in root repository as requested
 
 # ============================================================
-# STREAMLIT PAGE CONFIG & CUSTOM ORANGE/WHITE STYLING
+# STREAMLIT PAGE CONFIG & CUSTOM DARK THEME STYLING
 # ============================================================
 
 st.set_page_config(
@@ -27,89 +27,94 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Professional Orange & White Modern Theme CSS
+# Custom Styling: Black Background, Orange Accents, Purple Headings, Clear White Text
 st.markdown(
     """
     <style>
     /* Global Page Background & Fonts */
-    .main {
-        background-color: #FAFAFA;
-        color: #212121;
+    .stApp {
+        background-color: #0E0E10 !important;
+        color: #FFFFFF !important;
     }
     
-    /* Custom Header Banner */
+    /* Centered Header Section */
     .header-container {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: linear-gradient(135deg, #FF6600 0%, #E65100 100%);
-        padding: 2rem 2.5rem;
-        border-radius: 12px;
-        color: white;
+        text-align: center;
+        padding: 1rem 0 2rem 0;
         margin-bottom: 2rem;
-        box-shadow: 0 4px 15px rgba(255, 102, 0, 0.2);
+        border-bottom: 2px solid #FF6600;
+    }
+
+    .logo-img {
+        max-height: 120px;
+        margin-bottom: 1rem;
+        border-radius: 8px;
     }
     
-    .header-text h1 {
-        color: white !important;
-        font-size: 2.3rem !important;
-        font-weight: 700 !important;
+    .main-heading {
+        color: #A855F7 !important; /* Main Heading Purple */
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        margin: 0.5rem 0 0.2rem 0 !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .sub-heading {
+        color: #FF6600 !important; /* Secondary Subheading Orange */
+        font-size: 1.2rem !important;
+        font-weight: 500 !important;
         margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    .header-text p {
-        color: #FFE0B2 !important;
-        font-size: 1.1rem !important;
-        margin-top: 5px !important;
     }
 
     /* Cards & Container Styling */
     .book-card {
-        background-color: #FFFFFF;
-        border: 1px solid #FFE0B2;
+        background-color: #18181B;
+        border: 1px solid #3F3F46;
         border-left: 5px solid #FF6600;
         border-radius: 8px;
         padding: 1.25rem;
-        margin-bottom: 1.25rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .book-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(255, 102, 0, 0.15);
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
 
     .book-title {
-        color: #D84315;
-        font-size: 1.35rem;
+        color: #A855F7 !important; /* Purple Book Title */
+        font-size: 1.4rem;
         font-weight: 700;
         margin-bottom: 0.5rem;
     }
 
     .book-badge {
-        background-color: #FFF3E0;
-        color: #E65100;
+        background-color: #FF6600;
+        color: #FFFFFF !important;
         padding: 4px 10px;
-        border-radius: 12px;
+        border-radius: 6px;
         font-size: 0.85rem;
         font-weight: 600;
         display: inline-block;
         margin-bottom: 0.5rem;
+        margin-right: 0.4rem;
     }
 
     /* Input Styling */
     .stTextInput > div > div > input {
-        border: 2px solid #FFE0B2;
-        border-radius: 8px;
-        padding: 10px;
-        font-size: 1rem;
+        background-color: #18181B !important;
+        color: #FFFFFF !important;
+        border: 2px solid #FF6600 !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-size: 1rem !important;
     }
 
     .stTextInput > div > div > input:focus {
-        border-color: #FF6600;
-        box-shadow: 0 0 5px rgba(255, 102, 0, 0.4);
+        border-color: #A855F7 !important;
+        box-shadow: 0 0 8px rgba(168, 85, 247, 0.5) !important;
+    }
+
+    /* Labels & General Text Clear White */
+    label, p, span, div {
+        color: #FFFFFF !important;
     }
 
     /* Hide Streamlit Boilerplate */
@@ -301,37 +306,38 @@ def search_books(query):
 # USER INTERFACE LAYOUT
 # ============================================================
 
-# Title Banner with Image Logo
-col_title, col_logo = st.columns([4, 1])
+# Top Center Logo & Title Banner
+logo_html = ""
+if os.path.exists(LOGO_PATH):
+    logo_html = f'<img src="data:image/jpeg;base64,{st.image(LOGO_PATH, width=150)}"/>'
 
-with col_title:
+# Render Top Centered Header
+col_left, col_center, col_right = st.columns([1, 2, 1])
+
+with col_center:
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, width=220)
     st.markdown(
         f"""
         <div class="header-container">
-            <div class="header-text">
-                <h1>{APP_TITLE}</h1>
-                <p>{APP_SUBTITLE}</p>
-            </div>
+            <div class="main-heading">{APP_TITLE}</div>
+            <div class="sub-heading">{APP_SUBTITLE}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-with col_logo:
-    if os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, use_container_width=True)
-
 # Search Controls
 search_query = st.text_input(
     "🔎 Search Catalog",
-    placeholder="Enter book title, author, or publisher (e.g., 'Khushu', 'IIPH')...",
+    placeholder="Type title, author, or publisher name...",
 )
 
 if search_query:
     results = search_books(search_query)
 
     if results:
-        st.markdown(f"### Found {len(results)} Matching Record(s)")
+        st.markdown(f"<h3 style='color: #A855F7;'>Found {len(results)} Matching Record(s)</h3>", unsafe_allow_html=True)
 
         for book in results:
             # Main card layout
