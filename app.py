@@ -64,13 +64,6 @@ st.markdown(
         margin-top: 5px !important;
     }
 
-    .header-logo img {
-        max-height: 80px;
-        border-radius: 8px;
-        background-color: white;
-        padding: 5px;
-    }
-
     /* Cards & Container Styling */
     .book-card {
         background-color: #FFFFFF;
@@ -124,7 +117,7 @@ st.markdown(
     footer {visibility: hidden;}
     </style>
     """,
-    unsafe_allow_scope=True,
+    unsafe_allow_html=True,
 )
 
 
@@ -321,7 +314,7 @@ with col_title:
             </div>
         </div>
         """,
-        unsafe_allow_scope=True,
+        unsafe_allow_html=True,
     )
 
 with col_logo:
@@ -353,7 +346,7 @@ if search_query:
                     </div>
                 </div>
                 """,
-                unsafe_allow_scope=True,
+                unsafe_allow_html=True,
             )
 
             # Metadata details grid
