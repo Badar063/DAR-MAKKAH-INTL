@@ -1,4 +1,3 @@
-
 import os
 import re
 import html
@@ -51,12 +50,27 @@ st.html(
     <style>
 
     /* ========================================================
+       PROFESSIONAL COLOUR PALETTE
+       ========================================================
+
+       Background: Deep Navy
+       Surface:     Slate Navy
+       Accent:      Warm Gold
+       Secondary:   Soft Blue
+       Text:        White / Cool Gray
+
+       Designed for a professional library / institutional
+       catalog rather than a gaming or neon interface.
+       ======================================================== */
+
+
+    /* ========================================================
        GLOBAL
        ======================================================== */
 
     .stApp {
-        background-color: #0E0E10;
-        color: #FFFFFF;
+        background-color: #0B1220;
+        color: #F8FAFC;
     }
 
     .main .block-container {
@@ -86,7 +100,8 @@ st.html(
         text-align: center;
         padding: 1.2rem 0 1.8rem 0;
         margin-bottom: 1.8rem;
-        border-bottom: 2px solid #FF6600;
+
+        border-bottom: 2px solid #C9A227;
     }
 
     .library-logo {
@@ -98,7 +113,7 @@ st.html(
     }
 
     .main-heading {
-        color: #A855F7;
+        color: #F8FAFC;
         font-size: 2.4rem;
         font-weight: 800;
         letter-spacing: 1px;
@@ -107,7 +122,7 @@ st.html(
     }
 
     .sub-heading {
-        color: #FF6600;
+        color: #C9A227;
         font-size: 1.15rem;
         font-weight: 500;
         margin-top: 0.45rem;
@@ -119,28 +134,42 @@ st.html(
        ======================================================== */
 
     .search-label {
-        color: #FFFFFF;
+        color: #F8FAFC;
         font-size: 1rem;
         font-weight: 600;
         margin-bottom: 0.35rem;
     }
 
     .stTextInput > div > div > input {
-        background-color: #18181B !important;
-        color: #FFFFFF !important;
-        border: 2px solid #FF6600 !important;
+        background-color: #111C2E !important;
+        color: #F8FAFC !important;
+
+        border: 1px solid #334155 !important;
         border-radius: 8px !important;
+
         padding: 12px !important;
         font-size: 1rem !important;
+
+        transition:
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+
+    .stTextInput > div > div > input:hover {
+        border-color: #64748B !important;
     }
 
     .stTextInput > div > div > input:focus {
-        border-color: #A855F7 !important;
-        box-shadow: 0 0 8px rgba(168, 85, 247, 0.45) !important;
+        border-color: #C9A227 !important;
+
+        box-shadow:
+            0 0 0 1px #C9A227,
+            0 0 10px rgba(201, 162, 39, 0.18) !important;
     }
 
     .stTextInput label {
-        color: #FFFFFF !important;
+        color: #F8FAFC !important;
+        font-weight: 600 !important;
     }
 
 
@@ -149,62 +178,99 @@ st.html(
        ======================================================== */
 
     .book-card {
-        background: #18181B;
-        border: 1px solid #3F3F46;
-        border-left: 5px solid #FF6600;
+        background: #111C2E;
+
+        border: 1px solid #26364D;
+        border-left: 4px solid #C9A227;
+
         border-radius: 10px;
+
         padding: 1.25rem 1.35rem;
         margin: 0.8rem 0 0.25rem 0;
-        box-shadow: 0 5px 18px rgba(0, 0, 0, 0.35);
+
+        box-shadow:
+            0 5px 18px rgba(0, 0, 0, 0.22);
+
+        transition:
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+
+    .book-card:hover {
+        border-color: #3B4F6A;
+
+        box-shadow:
+            0 7px 22px rgba(0, 0, 0, 0.30);
     }
 
     .book-title {
-        color: #A855F7;
+        color: #F1F5F9;
+
         font-size: 1.35rem;
         font-weight: 750;
+
         margin-bottom: 0.75rem;
+
         line-height: 1.35;
     }
 
     .book-badge {
         display: inline-block;
-        background: #FF6600;
-        color: #FFFFFF;
+
+        background: #1E293B;
+        color: #CBD5E1;
+
         padding: 5px 10px;
         margin: 0 5px 5px 0;
+
+        border: 1px solid #334155;
         border-radius: 6px;
+
         font-size: 0.82rem;
         font-weight: 600;
     }
 
     .match-badge {
         display: inline-block;
-        background: #312E81;
+
         color: #FFFFFF;
+
         padding: 5px 10px;
+
         border-radius: 6px;
+
         font-size: 0.82rem;
         font-weight: 600;
     }
 
+    /* Exact match - green */
+
     .match-exact {
-        background: #15803D;
+        background: #166534;
     }
+
+    /* Title match - blue */
 
     .match-title {
-        background: #7C3AED;
+        background: #1D4ED8;
     }
+
+    /* Author match - teal */
 
     .match-author {
-        background: #2563EB;
+        background: #0F766E;
     }
+
+    /* Publisher match - muted gold */
 
     .match-publisher {
-        background: #CA8A04;
+        background: #9A6F00;
     }
 
+    /* General match - slate */
+
     .match-general {
-        background: #52525B;
+        background: #475569;
     }
 
 
@@ -213,23 +279,28 @@ st.html(
        ======================================================== */
 
     .metadata-box {
-        background: #121214;
-        border: 1px solid #27272A;
+        background: #0E1726;
+
+        border: 1px solid #26364D;
         border-radius: 8px;
+
         padding: 0.9rem 1rem;
         margin-top: 0.4rem;
     }
 
     .metadata-label {
-        color: #A1A1AA;
+        color: #94A3B8;
+
         font-size: 0.8rem;
         font-weight: 600;
+
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
 
     .metadata-value {
-        color: #FFFFFF;
+        color: #F8FAFC;
+
         font-size: 0.95rem;
         margin-top: 0.2rem;
     }
@@ -240,22 +311,30 @@ st.html(
        ======================================================== */
 
     .dashboard-card {
-        background: #18181B;
-        border: 1px solid #3F3F46;
+        background: #111C2E;
+
+        border: 1px solid #26364D;
         border-radius: 10px;
+
         padding: 1.1rem;
         text-align: center;
+
         min-height: 105px;
+
+        box-shadow:
+            0 4px 14px rgba(0, 0, 0, 0.18);
     }
 
     .dashboard-number {
-        color: #A855F7;
+        color: #C9A227;
+
         font-size: 2rem;
         font-weight: 800;
     }
 
     .dashboard-label {
-        color: #A1A1AA;
+        color: #94A3B8;
+
         font-size: 0.85rem;
         margin-top: 0.25rem;
     }
@@ -266,15 +345,21 @@ st.html(
        ======================================================== */
 
     .section-heading {
-        color: #A855F7;
+        color: #F1F5F9;
+
         font-size: 1.35rem;
         font-weight: 750;
+
         margin-top: 1.6rem;
         margin-bottom: 0.7rem;
+
+        border-left: 3px solid #C9A227;
+        padding-left: 0.7rem;
     }
 
     .section-description {
-        color: #A1A1AA;
+        color: #94A3B8;
+
         font-size: 0.92rem;
         margin-bottom: 1rem;
     }
@@ -285,25 +370,35 @@ st.html(
        ======================================================== */
 
     .system-card {
-        background: #18181B;
-        border: 1px solid #3F3F46;
+        background: #111C2E;
+
+        border: 1px solid #26364D;
         border-radius: 10px;
+
         padding: 1rem 1.2rem;
         margin-top: 1.8rem;
+
+        box-shadow:
+            0 4px 14px rgba(0, 0, 0, 0.18);
     }
 
     .system-title {
-        color: #FF6600;
+        color: #C9A227;
+
         font-weight: 700;
         font-size: 1rem;
+
         margin-bottom: 0.6rem;
     }
 
     .system-row {
         display: flex;
         justify-content: space-between;
-        border-bottom: 1px solid #27272A;
+
+        border-bottom: 1px solid #26364D;
+
         padding: 0.45rem 0;
+
         font-size: 0.88rem;
     }
 
@@ -312,11 +407,11 @@ st.html(
     }
 
     .system-key {
-        color: #A1A1AA;
+        color: #94A3B8;
     }
 
     .system-value {
-        color: #FFFFFF;
+        color: #F8FAFC;
         font-weight: 600;
     }
 
@@ -326,11 +421,15 @@ st.html(
        ======================================================== */
 
     .empty-state {
-        background: #18181B;
-        border: 1px solid #3F3F46;
+        background: #111C2E;
+
+        border: 1px solid #26364D;
         border-radius: 10px;
+
         padding: 2rem;
+
         text-align: center;
+
         margin-top: 1rem;
     }
 
@@ -339,15 +438,94 @@ st.html(
     }
 
     .empty-title {
-        color: #A855F7;
+        color: #F1F5F9;
+
         font-size: 1.15rem;
         font-weight: 700;
+
         margin-top: 0.5rem;
     }
 
     .empty-text {
-        color: #A1A1AA;
+        color: #94A3B8;
         margin-top: 0.4rem;
+    }
+
+
+    /* ========================================================
+       STREAMLIT DIVIDER
+       ======================================================== */
+
+    hr {
+        border-color: #26364D !important;
+    }
+
+
+    /* ========================================================
+       STREAMLIT ALERTS
+       ======================================================== */
+
+    [data-testid="stAlert"] {
+        background-color: #111C2E !important;
+        border: 1px solid #334155 !important;
+        color: #CBD5E1 !important;
+    }
+
+
+    /* ========================================================
+       EXPANDER
+       ======================================================== */
+
+    [data-testid="stExpander"] {
+        background-color: #111C2E !important;
+        border: 1px solid #26364D !important;
+        border-radius: 8px !important;
+    }
+
+    [data-testid="stExpander"] summary {
+        color: #CBD5E1 !important;
+    }
+
+
+    /* ========================================================
+       METRICS / GENERAL STREAMLIT TEXT
+       ======================================================== */
+
+    [data-testid="stMetric"] {
+        background-color: #111C2E;
+        border: 1px solid #26364D;
+        border-radius: 10px;
+        padding: 1rem;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #C9A227 !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #94A3B8 !important;
+    }
+
+
+    /* ========================================================
+       SCROLLBAR
+       ======================================================== */
+
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #0B1220;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
     }
 
     </style>
@@ -669,12 +847,6 @@ def field_match_type(query, title, author, publisher):
 
     # --------------------------------------------------------
     # Multi-word title search
-    #
-    # Example:
-    # "inner prayer"
-    #
-    # Every important search token must have a reasonably
-    # strong relationship to the title.
     # --------------------------------------------------------
 
     query_tokens = tokenize(q)
@@ -756,18 +928,6 @@ def search_books(query, rows):
 
     # --------------------------------------------------------
     # Ranking
-    #
-    # Exact title
-    # ↓
-    # Title contains
-    # ↓
-    # Title keyword
-    # ↓
-    # Strong title
-    # ↓
-    # Author
-    # ↓
-    # Publisher
     # --------------------------------------------------------
 
     reason_priority = {
@@ -1238,4 +1398,3 @@ st.html(
     </div>
     """
 )
-
