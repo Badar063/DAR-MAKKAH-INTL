@@ -1,0 +1,7 @@
+streamlit
+numpy
+Pillow
+rapidfuzz
+google-genai
+sentence-transformers
+torch
