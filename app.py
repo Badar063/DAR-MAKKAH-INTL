@@ -1118,7 +1118,7 @@ If author is not visible, return:
 
 "author": ""
 
-Return ONLY a JSON array.
+RETURN ONLY A JSON ARRAY.
 
 Required format:
 
@@ -1136,6 +1136,16 @@ Required format:
 Do not include Markdown.
 Do not include explanations.
 Do not include commentary outside the JSON array.
+
+BEFORE RETURNING THE JSON:
+
+- Review the image a second time.
+- Check every visible book spine.
+- Make sure adjacent books are not merged.
+- Make sure narrow books are not skipped.
+- Make sure each returned title has visible evidence.
+- Do not complete partially readable titles using outside knowledge.
+- Do not invent missing words.
 """
 
     suffix = (
@@ -1294,25 +1304,8 @@ def clean_gemini_books(
 # SHELF NAME
 # ============================================================
 
-# ============================================================
-# ONLY CHANGE:
-#
-# Previously this accepted only:
-#
-# SHELF-01.jpg
-# SHELF-02.jpg
-#
-# It now also accepts:
-#
-# SHELF-H2002.jpg
-# SHELF-H2003.jpg
-# SHELF-A100.jpg
-#
-# and other letters/numbers after SHELF-.
-# ============================================================
-
 SHELF_FILENAME_PATTERN = re.compile(
-    r"^(SHELF-[A-Z0-9_-]+)\.(jpg|jpeg|png)$",
+    r"^(SHELF-\d+|SHELF-[A-Z0-9]+).(jpg|jpeg|png)$",
     re.IGNORECASE,
 )
 
@@ -1489,8 +1482,13 @@ def search_books(
     Main search.
 
     IMPORTANT:
-    Semantic similarity is NEVER allowed to create
-    arbitrary short-query results.
+
+    1. Exact title matches ALWAYS have priority.
+    2. If one or more books have the exact same title,
+       ONLY those exact-title books are returned.
+    3. Multiple copies of the same exact title are allowed.
+    4. Semantic/fuzzy results are NOT allowed to add
+       different titles when an exact title exists.
     """
 
     query = query.strip()
@@ -1515,6 +1513,91 @@ def search_books(
 
     if not rows:
         return []
+
+    # ========================================================
+    # EXACT TITLE MATCH
+    #
+    # THIS IS THE IMPORTANT CHANGE.
+    #
+    # Example:
+    #
+    # Search:
+    # DEVELOPING KHUSHŪ’ IN THE PRAYER
+    #
+    # If the database contains:
+    #
+    # DEVELOPING KHUSHŪ’ IN THE PRAYER
+    # INNER DIMENSIONS OF THE PRAYER
+    # HUMILITY IN PRAYER
+    #
+    # ONLY:
+    #
+    # DEVELOPING KHUSHŪ’ IN THE PRAYER
+    #
+    # will be returned.
+    #
+    # If the exact title exists on multiple shelves,
+    # all copies are returned.
+    # ========================================================
+
+    normalized_query = normalize_text(
+        query
+    )
+
+    exact_title_rows = [
+        row
+        for row in rows
+        if normalize_text(
+            row["title"] or ""
+        ) == normalized_query
+    ]
+
+    if exact_title_rows:
+
+        exact_results = []
+
+        for row in exact_title_rows:
+
+            exact_results.append(
+                {
+                    "id": row["id"],
+                    "shelf": row["shelf"],
+                    "title": row["title"] or "",
+                    "author": row["author"] or "",
+                    "publisher": row["publisher"] or "",
+                    "language": row["language"] or "",
+                    "confidence": row["confidence"],
+                    "position": row["position"],
+                    "image": row["image"],
+                    "updated_at": row["updated_at"],
+
+                    "title_score": 100.0,
+                    "author_score": 0.0,
+                    "publisher_score": 0.0,
+                    "lexical_score": 100.0,
+                    "semantic_score": 0.0,
+                    "score": 100.0,
+
+                    "reason": "Exact title match",
+                }
+            )
+
+        exact_results.sort(
+            key=lambda item: (
+                item["shelf"],
+                item["position"]
+                if item["position"] is not None
+                else 999999,
+            )
+        )
+
+        return exact_results
+
+    # ========================================================
+    # NORMAL FUZZY + SEMANTIC SEARCH
+    #
+    # This is used when there is NO exact title match.
+    # ========================================================
 
     model = None
     query_vector = None
@@ -1617,14 +1700,6 @@ def search_books(
         # SHORT QUERY:
         #
         # Do NOT allow semantic-only results.
-        #
-        # This is the main fix for:
-        #
-        # journey
-        # world
-        # iiph
-        # python
-        #
         if short_query:
 
             if not real_text_match:
@@ -1742,16 +1817,23 @@ def database_statistics():
 # API KEY
 # ============================================================
 
-environment_api_key = os.getenv(
-    "GEMINI_API_KEY"
-)
+try:
 
-if environment_api_key:
+    api_key = st.secrets[
+        "GEMINI_API_KEY"
+    ]
 
-    api_key = environment_api_key
+except Exception:
+
+    api_key = os.getenv(
+        "GEMINI_API_KEY",
+        "",
+    )
+
+if api_key:
 
     st.success(
-        "Gemini API key loaded from environment."
+        "Gemini API key loaded."
     )
 
 else:
@@ -1779,12 +1861,14 @@ st.header("LIBRARY DATABASE")
 col1, col2 = st.columns(2)
 
 with col1:
+
     st.metric(
         "Indexed shelves",
         shelf_count,
     )
 
 with col2:
+
     st.metric(
         "Detected books",
         book_count,
@@ -1929,51 +2013,14 @@ if search_clicked:
                         f"{result['reason']}"
                     )
 
-                # ------------------------------------------------
-                # SHOW IMAGE ONLY AFTER RESULT PASSES FILTER
-                # ------------------------------------------------
-
-                image_filename = (
-                    result["image"]
-                )
-
-                if image_filename:
-
-                    image_path = (
-                        SHELVES_DIR
-                        / image_filename
-                    )
-
-                    if image_path.exists():
-
-                        try:
-
-                            shelf_image = Image.open(
-                                image_path
-                            )
-
-                            st.image(
-                                shelf_image,
-                                caption=(
-                                    f"Current shelf: "
-                                    f"{result['shelf']}"
-                                ),
-                                use_container_width=True,
-                            )
-
-                        except Exception as error:
-
-                            st.warning(
-                                "Shelf image could not be opened: "
-                                f"{error}"
-                            )
-
-                    else:
-
-                        st.warning(
-                            f"Shelf image is missing: "
-                            f"{image_filename}"
-                        )
+                # ====================================================
+                # IMPORTANT:
+                #
+                # NO SHELF IMAGE IS DISPLAYED HERE.
+                #
+                # The database contains the book information,
+                # so shelf images can be deleted after indexing.
+                # ====================================================
 
                 st.divider()
 
@@ -1986,7 +2033,7 @@ st.header("SCAN SHELF")
 
 shelf_input = st.text_input(
     "Shelf number",
-    placeholder="SHELF-H2002",
+    placeholder="SHELF-01",
 )
 
 uploaded_file = st.file_uploader(
@@ -2375,10 +2422,18 @@ with st.expander(
 
     st.write(
         "Search order: "
-        "exact/substring → fuzzy → semantic"
+        "exact title → exact/substring → fuzzy → semantic"
+    )
+
+    st.write(
+        "Exact title matches suppress different titles."
     )
 
     st.write(
         "Semantic-only weak matches are rejected."
+    )
+
+    st.write(
+        "Shelf images are not required for search results."
     )
 
